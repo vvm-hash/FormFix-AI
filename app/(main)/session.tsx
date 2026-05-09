@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { uploadMovementVideos } from "@/services/api";
+import * as ImagePicker from "expo-image-picker";
 
 const { width } = Dimensions.get("window");
 
@@ -49,7 +51,11 @@ const ANGLES = [
   },
 ];
 
-type VideoEntry = { id: string; name: string };
+type VideoEntry = {
+  id: string;
+  name: string;
+  uri: string;
+};
 type UploadMap = Record<string, VideoEntry[]>;
 
 function PulseRing({ color }: { color: string }) {
@@ -286,15 +292,33 @@ export default function SessionScreen() {
     }
   }, [totalVideos]);
 
-  const handleUpload = (angleId: string) => {
-    const newVideo: VideoEntry = {
-      id: `${angleId}_${Date.now()}`,
-      name: `Clip_${String(_videoCounter++).padStart(3, "0")}.mp4`,
-    };
-    setUploads((prev) => ({
-      ...prev,
-      [angleId]: [...prev[angleId], newVideo],
-    }));
+  const handleUpload = async (angleId: string) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+
+      const newVideo: VideoEntry = {
+        id: `${angleId}_${Date.now()}`,
+        name:
+          asset.fileName ||
+          `Clip_${String(_videoCounter++).padStart(3, "0")}.mp4`,
+        uri: asset.uri,
+      };
+
+      setUploads((prev) => ({
+        ...prev,
+        [angleId]: [...prev[angleId], newVideo],
+      }));
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleRemove = (angleId: string, videoId: string) => {
@@ -377,28 +401,54 @@ export default function SessionScreen() {
           style={styles.bottomGradient}
         >
           <Pressable
-            onPress={() => canProceed && router.push("/(main)/processing")}
-            style={({ pressed }) => [
-              styles.analyzeBtn,
-              pressed && { opacity: 0.88 },
-            ]}
+            onPress={async () => {
+              if (!canProceed) return;
+
+              try {
+                router.push("/(main)/processing");
+
+                for (const angleKey of Object.keys(uploads)) {
+                  const angleVideos = uploads[angleKey];
+
+                  for (const video of angleVideos) {
+                    await uploadMovementVideos({
+                      exerciseId: "running-gait",
+                      angle: angleKey as
+                        | "front"
+                        | "side"
+                        | "rear"
+                        | "overhead",
+                      videoUri: video.uri,
+                    });
+                  }
+                }
+
+                console.log("All uploads successful");
+              } catch (error) {
+                console.error(error);
+              }
+            }}
+          style={({ pressed }) => [
+            styles.analyzeBtn,
+            pressed && { opacity: 0.88 },
+          ]}
           >
-            <LinearGradient
-              colors={["#00F5D4", "#00BAA0", "#7B61FF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.analyzeBtnGradient}
-            >
-              <Text style={styles.analyzeBtnText}>Start AI Analysis</Text>
-              <Text style={styles.analyzeBtnIcon}>⚡</Text>
-            </LinearGradient>
-          </Pressable>
-          {!canProceed && (
-            <Text style={styles.requireHint}>Upload at least 1 video to continue</Text>
-          )}
-        </LinearGradient>
-      </Animated.View>
-    </View>
+          <LinearGradient
+            colors={["#00F5D4", "#00BAA0", "#7B61FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.analyzeBtnGradient}
+          >
+            <Text style={styles.analyzeBtnText}>Start AI Analysis</Text>
+            <Text style={styles.analyzeBtnIcon}>⚡</Text>
+          </LinearGradient>
+        </Pressable>
+        {!canProceed && (
+          <Text style={styles.requireHint}>Upload at least 1 video to continue</Text>
+        )}
+      </LinearGradient>
+    </Animated.View>
+    </View >
   );
 }
 

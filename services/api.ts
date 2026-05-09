@@ -1,9 +1,12 @@
 import { AnalysisResult, MOCK_ANALYSIS_RESULT } from "./analysis";
+import axios from "axios";
 
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
 
+// const BASE_URL = "http://10.55.243.160:5000";
+const BASE_URL = "http://10.0.2.2:5000";
 export interface UploadVideoPayload {
   exerciseId: string;
   angle: "front" | "side" | "rear" | "overhead";
@@ -57,15 +60,36 @@ function simulateDelay(ms: number = 1200): Promise<void> {
 export async function uploadMovementVideos(
   payload: UploadVideoPayload
 ): Promise<UploadVideoResponse> {
-  await simulateDelay(800);
+  try {
+    const formData = new FormData();
 
-  // TODO: Replace with real multipart/form-data upload to backend
-  return {
-    uploadId: `upload_${Date.now()}_${payload.angle}`,
-    status: "ready",
-    angle: payload.angle,
-    uploadedAt: new Date().toISOString(),
-  };
+    formData.append("videos", {
+      uri: payload.videoUri,
+      type: "video/mp4",
+      name: `${payload.angle}.mp4`,
+    } as any);
+
+    const response = await axios.post(
+      `${BASE_URL}/api/analysis/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return {
+      uploadId: response.data.files[0].filename,
+      status: "ready",
+      angle: payload.angle,
+      uploadedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error(error);
+
+    throw new Error("Video upload failed");
+  }
 }
 
 /**
