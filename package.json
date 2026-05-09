@@ -36,5 +36,9 @@
     "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }
