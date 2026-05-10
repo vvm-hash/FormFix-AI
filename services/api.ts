@@ -91,6 +91,19 @@ export async function uploadMovementVideos(
     throw new Error("Video upload failed");
   }
 }
+export async function saveAnalysisResult(data: any) {
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/analysis/save`,
+      data
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
 
 /**
  * Triggers AI biomechanical analysis for a set of uploaded videos.
